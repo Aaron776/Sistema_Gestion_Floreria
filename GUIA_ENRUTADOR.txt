@@ -1,0 +1,802 @@
+================================================================================
+  GUIA COMPLETA: IMPLEMENTACION DE SISTEMA DE ENRUTAMIENTO (FRONT CONTROLLER)
+  Proyecto: Sistema Gestion Hotelera
+  Proposito: Reemplazar URLs con .php por rutas limpias tipo /admin/usuarios/crear
+================================================================================
+
+INDICE:
+  1.  QUE ES UN FRONT CONTROLLER Y POR QUE USARLO
+  2.  ARCHIVOS CLAVE DEL SISTEMA
+  3.  PASO 1: CREAR EL MAPA DE RUTAS (config/rutas.php)
+  4.  PASO 2: CREAR EL FRONT CONTROLLER (index.php)
+  5.  PASO 3: CONFIGURAR .htaccess
+  6.  PASO 4: FUNCIONES url() Y redirect()
+  7.  PASO 5: REEMPLAZAR header("Location:") POR redirect()
+  8.  PASO 6: REEMPLAZAR FORM action POR url()
+  9.  PASO 7: REEMPLAZAR hrefs EN NAVEGACION Y ENLACES
+  10. PASO 8: CORREGIR RUTAS DE CSS Y JS (RELATIVAS VS ABSOLUTAS)
+  11. PASO 9: CORREGIR $base_url EN templates/header.php
+  12. CASOS ESPECIALES: FACEBOOK OAUTH CALLBACK
+  13. CASOS ESPECIALES: FECHAS EN type="text" VS type="date"
+  14. PROBLEMAS COMUNES Y SOLUCIONES
+  15. LISTA DE VERIFICACION (CHECKLIST)
+  16. RESUMEN DE ARCHIVOS MODIFICADOS
+
+================================================================================
+1.  QUE ES UN FRONT CONTROLLER Y POR QUE USARLO
+================================================================================
+
+Un Front Controller es un unico archivo PHP (index.php) que recibe TODAS las
+solicitudes HTTP del proyecto. Analiza la URL, busca una ruta en un mapa
+predefinido, e incluye el archivo PHP correspondiente.
+
+Ventajas:
+  - URLs limpias y semanticas: /admin/usuarios/crear en vez de admin/agregar_usuario.php?id=5
+  - Centraliza la logica de enrutamiento en un solo lugar
+  - Facilita cambiar la estructura de archivos sin romper URLs
+  - Permite agregar middleware (autenticacion, logs, etc.) en un solo punto
+  - Mas profesional y mantenible
+
+Requisitos:
+  - Apache con mod_rewrite habilitado
+  - PHP 7.4+
+  - Hosting que permita .htaccess
+
+================================================================================
+2.  ARCHIVOS CLAVE DEL SISTEMA
+================================================================================
+
+  Proyecto/
+  ├── index.php              <-- Front Controller (PUNTO DE ENTRADA UNICO)
+  ├── .htaccess              <-- Reglas de reescritura de Apache
+  ├── config/
+  │   └── rutas.php          <-- Mapa de rutas + funciones url() y redirect()
+  ├── templates/
+  │   └── header.php         <-- $base_url modificado para usar BASE_PATH
+  ├── controladores/         <-- Logica POST de formularios
+  ├── admin/                 <-- Vistas del rol admin
+  ├── recepcionista/         <-- Vistas del rol recepcionista
+  ├── cliente/               <-- Vistas del rol cliente
+  └── ... (demas carpetas existentes)
+
+================================================================================
+3.  PASO 1: CREAR EL MAPA DE RUTAS (config/rutas.php)
+================================================================================
+
+Crear el archivo config/rutas.php con la siguiente estructura:
+
+  <?php
+  define('BASE_PATH', '/nombre_carpeta_del_proyecto');
+  
+  $rutas = [
+      '/'                           => 'inicio.php',
+      '/login'                      => 'login.php',
+      '/admin/dashboard'            => 'admin/dash_admin.php',
+      '/admin/usuarios'             => 'admin/gestion_usuarios.php',
+      '/admin/usuarios/crear'       => 'admin/agregar_usuario.php',
+      '/admin/usuarios/guardar'     => 'controladores/admin/agregar_usuario.php',
+      '/admin/usuarios/editar'      => 'admin/editar_usuario.php',
+      '/admin/usuarios/actualizar'  => 'controladores/admin/editar_usuario.php',
+      '/admin/usuarios/eliminar'    => 'controladores/admin/eliminar_usuario.php',
+      // ... todas las rutas del proyecto
+  ];
+
+REGLAS PARA NOMBRAR RUTAS:
+  - Vistas (GET):  usar sustantivos en plural: /admin/usuarios, /admin/usuarios/crear
+  - Controladores (POST): usar verbos: /admin/usuarios/guardar, /admin/usuarios/actualizar
+  - La ruta '/' es la pagina de inicio por defecto
+  - Usar kebab-case (guiones): /cliente/cambiar-password, /admin/configuracion-hotel
+  - Los parametros GET se pasan normalmente: url('/admin/usuarios/editar?id=5')
+
+CONVENCIONES DE NOMBRES:
+
+  URL                        TIPO      ARCHIVO QUE INCLUYE
+  ───────────────────────────────────────────────────────────
+  /admin/usuarios            GET       admin/gestion_usuarios.php
+  /admin/usuarios/crear      GET       admin/agregar_usuario.php
+  /admin/usuarios/editar     GET       admin/editar_usuario.php
+  /admin/usuarios/guardar    POST      controladores/admin/agregar_usuario.php
+  /admin/usuarios/actualizar POST      controladores/admin/editar_usuario.php
+  /admin/usuarios/eliminar   POST      controladores/admin/eliminar_usuario.php
+
+  Convencion: las rutas son en plural y todo en ingles simplificado.
+  Los metodos POST apuntan a la carpeta controladores/.
+
+================================================================================
+4.  PASO 2: CREAR EL FRONT CONTROLLER (index.php)
+================================================================================
+
+REEMPLAZAR el contenido del index.php existente (el que tenia la landing page)
+con el siguiente codigo:
+
+  <?php
+  require __DIR__ . '/config/rutas.php';
+  
+  $url = isset($_GET['url']) ? rtrim($_GET['url'], '/') : '';
+  $url = '/' . ltrim($url, '/');
+  
+  $urlPath = parse_url($url, PHP_URL_PATH);
+  
+  if (isset($rutas[$urlPath])) {
+      $target = __DIR__ . '/' . $rutas[$urlPath];
+      if (file_exists($target)) {
+          $cwd = getcwd();
+          chdir(dirname($target));
+          require $target;
+          chdir($cwd);
+          exit;
+      }
+  }
+  
+  $notFound = __DIR__ . '/pagina_no_encontrada.php';
+  if (file_exists($notFound)) {
+      $cwd = getcwd();
+      chdir(dirname($notFound));
+      require $notFound;
+      chdir($cwd);
+  } else {
+      http_response_code(404);
+      echo '404 - Pagina no encontrada';
+  }
+
+QUE HACE CADA LINEA:
+
+  Linea 2: Carga el mapa de rutas y las funciones url(), redirect()
+  Linea 4-5: Toma la URL de $_GET['url'], la normaliza (quita / del final, agrega / al inicio)
+  Linea 7: Extrae solo el PATH (ignora query string como ?id=5)
+  Linea 9: Busca la ruta en el mapa $rutas
+  Linea 10: Construye la ruta absoluta al archivo destino
+  Linea 12-15: Guarda el directorio actual, cambia al directorio del archivo destino,
+               incluye el archivo, y restaura el directorio original
+              (IMPORTANTE: el chdir() es necesario para que los require_once relativos
+               como require_once '../conexion/bd.php' funcionen correctamente)
+  Linea 20-28: Si no se encuentra la ruta, muestra pagina 404
+
+NOTA: Si tenias una landing page en index.php, DEBES respaldarla (ej: inicio.php)
+      y agregar la ruta '/' => 'inicio.php' en el mapa de rutas.
+
+================================================================================
+5.  PASO 3: CONFIGURAR .htaccess
+================================================================================
+
+Crear o reemplazar .htaccess en la RAIZ del proyecto:
+
+  RewriteEngine On
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule ^(.*)$ index.php?url=$1 [QSA,L]
+  
+  ErrorDocument 404 /nombre_carpeta_proyecto/index.php?url=404
+
+QUE HACE:
+  - RewriteEngine On: Activa el motor de reescritura
+  - RewriteCond %{REQUEST_FILENAME} !-f: NO reescribir si el archivo existe (CSS, JS, imagenes)
+  - RewriteCond %{REQUEST_FILENAME} !-d: NO reescribir si el directorio existe
+  - RewriteRule: Toma la URL y la pasa como parametro ?url= a index.php
+  - [QSA]: Query String Append - conserva los parametros GET existentes
+  - [L]: Last - detiene el procesamiento de reglas
+  - ErrorDocument 404: Pagina de error 404 personalizada
+
+IMPORTANTE:
+  - El ErrorDocument debe apuntar a la ruta CORRECTA incluyendo la subcarpeta
+  - Si el proyecto esta en la raiz del dominio, usar ErrorDocument 404 /index.php?url=404
+  - La condicion !-f es CRITICA: sin ella, los archivos CSS, JS e imagenes
+    tambien serian interceptados por el router
+
+================================================================================
+6.  PASO 4: FUNCIONES url() Y redirect()
+================================================================================
+
+Se definen en config/rutas.php:
+
+  function url($path = '', $params = []) {
+      if (str_starts_with($path, '/')) {
+          $url = BASE_PATH . $path;
+      } else {
+          $url = BASE_PATH . '/' . ltrim($path, '/');
+      }
+      if (!empty($params)) {
+          $url .= '?' . http_build_query($params);
+      }
+      return $url;
+  }
+  
+  function redirect($path, $params = []) {
+      header('Location: ' . url($path, $params));
+      exit;
+  }
+
+USO DE url() EN HTML:
+
+  <a href="<?= url('/admin/usuarios') ?>">Lista de Usuarios</a>
+  <a href="<?= url('/admin/usuarios/editar?id=' . Crypto::encrypt($id)) ?>">Editar</a>
+  <a href="<?= url('/admin/usuarios/editar', ['id' => Crypto::encrypt($id)]) ?>">Editar</a>
+  <form action="<?= url('/admin/usuarios/guardar') ?>" method="POST">
+  <link rel="stylesheet" href="<?= url('/app/css/estilos.css') ?>">
+  <script src="<?= url('/app/js/scripts.js') ?>"></script>
+
+USO DE redirect() EN PHP:
+
+  redirect('/login');
+  redirect('/admin/usuarios/editar', ['id' => Crypto::encrypt($id)]);
+  redirect('/cliente/reservas?pagina=2');
+
+NOTA SOBRE LOS PARAMETROS:
+  - El segundo parametro de url() y redirect() es un ARRAY asociativo
+  - Si solo tienes un parametro, puedes concatenarlo en el string del path:
+      url('/ruta?id=' . $valor)
+  - Si tienes multiples parametros, usa el array:
+      url('/ruta', ['id' => $a, 'page' => $b])
+
+================================================================================
+7.  PASO 5: REEMPLAZAR header("Location:") POR redirect()
+================================================================================
+
+BUSCAR en TODOS los archivos PHP del proyecto (excluyendo vendor/):
+
+  header("Location: ...")
+
+REEMPLAZAR CADA UNO con:
+
+  redirect('/ruta-correspondiente');
+
+EJEMPLOS DE CONVERSION:
+
+  ANTES:                            DESPUES:
+  ─────────────────────────────────────────────────────────────────
+  header("Location: ../login.php")  redirect('/login')
+  header("Location: index.php")     redirect('/inicio')
+  header("Location: dash_admin.php") redirect('/admin/dashboard')
+  header("Location: ../index.php")  redirect('/')
+
+CASOS ESPECIALES:
+
+  1. header("Location: ...") CON VARIABLES PHP:
+     ANTES:  header("Location: editar_habitacion.php?id=" . Crypto::encrypt($id))
+     DESPUES: redirect('/admin/habitaciones/editar', ['id' => Crypto::encrypt($id)])
+
+  2. header("Location: ...") CON STRING CONCATENADO:
+     ANTES:  header("Location: editar_usuario.php?id_usuario=" . urlencode(Crypto::encrypt($id)))
+     DESPUES: redirect('/admin/usuarios/editar', ['id_usuario' => urlencode(Crypto::encrypt($id))])
+
+  3. URLs EXTERNAS (NO reemplazar):
+     header('Location: https://www.facebook.com/...');  // Dejar intacto
+
+ERROR COMUN: CORCHETES DESBALANCEADOS
+  Al reemplazar header("Location: ...") con redirect('/ruta', [params]),
+  es FACIL olvidar cerrar el array con ] antes del ).
+
+  MAL:   redirect('/ruta', ['id' => $x));
+  BIEN:  redirect('/ruta', ['id' => $x ]);
+
+  REVISA SIEMPRE que la cantidad de [ coincida con ] y ( con ).
+
+================================================================================
+8.  PASO 6: REEMPLAZAR FORM action POR url()
+================================================================================
+
+BUSCAR en las VISTAS (no controladores):
+
+  action="archivo.php"
+  action="../carpeta/archivo.php"
+  action="<?= $base_url ?>carpeta/archivo.php"
+
+REEMPLAZAR con:
+
+  action="<?= url('/ruta-del-controlador') ?>"
+
+EJEMPLOS:
+
+  ANTES:  <form action="guardar_usuario.php" method="POST">
+  DESPUES: <form action="<?= url('/admin/usuarios/guardar') ?>" method="POST">
+
+  ANTES:  <form action="../controladores/login.php" method="POST">
+  DESPUES: <form action="<?= url('/login/autenticar') ?>" method="POST">
+
+MAS DE UN FORMULARIO EN UNA VISTA:
+  Cada formulario puede apuntar a una ruta diferente.
+  Agrupa las rutas POST bajo la misma URL base para mantener orden.
+
+================================================================================
+9.  PASO 7: REEMPLAZAR hrefs EN NAVEGACION Y ENLACES
+================================================================================
+
+BUSCAR en las VISTAS:
+
+  <a href="archivo.php">...
+  <a href="../carpeta/archivo.php">...
+  <a href="<?= $base_url ?>carpeta/archivo.php">...
+  <a href="archivo.php?id=<?= $id ?>">...
+
+REEMPLAZAR con:
+
+  <a href="<?= url('/ruta') ?>">...
+  <a href="<?= url('/ruta?id=' . $id) ?>">...
+  <a href="<?= url('/ruta', ['id' => $id]) ?>">...
+
+EJEMPLOS:
+
+  ANTES:  <a href="gestion_usuarios.php">Usuarios</a>
+  DESPUES: <a href="<?= url('/admin/usuarios') ?>">Usuarios</a>
+
+  ANTES:  <a href="editar_habitacion.php?id_habitacion=<?= Crypto::encrypt($id) ?>">Editar</a>
+  DESPUES: <a href="<?= url('/admin/habitaciones/editar?id_habitacion=' . Crypto::encrypt($id)) ?>">Editar</a>
+
+NAVEGACION EN HEADER/SIDEBAR:
+  Los menus de navegacion en templates/header.php usaban $base_url.
+  Reemplazar TODOS los <a href="<?= $base_url ?>..."> con <a href="<?= url('...') ?>">
+
+CASO ESPECIAL: ENLACES A ARCHIVOS ESTATICOS (comprobantes, subidas)
+  NO reemplazar rutas como:
+    href="../app/comprobantes_pagos/<?= $archivo ?>"
+    href="uploads/<?= $archivo ?>"
+  Estos son archivos reales en el servidor, no rutas del router.
+  Apache los sirve directamente gracias a la condicion !-f en .htaccess.
+
+================================================================================
+10. PASO 8: CORREGIR RUTAS DE CSS Y JS (RELATIVAS VS ABSOLUTAS)
+================================================================================
+
+PROBLEMA:
+  Con el router, la URL en el navegador es /admin/usuarios/crear pero el
+  archivo fisico esta en /admin/. Las rutas relativas como "../app/css/estilos.css"
+  se resuelven desde la URL del navegador, NO desde la ubicacion del archivo.
+
+  Ejemplo de resolucion INCORRECTA:
+    URL en navegador: /Sistema/admin/usuarios/crear
+    href: ../app/css/estilos.css
+    Resuelve: /Sistema/admin/usuarios/../app/css/estilos.css
+    Resultado: /Sistema/admin/app/css/estilos.css  (RUTA INCORRECTA)
+
+SOLUCION:
+  Usar SIEMPRE rutas absolutas con url() para CSS y JS:
+
+    <link rel="stylesheet" href="<?= url('/app/css/admin/estilos.css') ?>">
+    <script src="<?= url('/app/js/admin/scripts.js') ?>"></script>
+
+  NUNCA usar rutas relativas (../ o ./) para CSS/JS.
+
+  Las rutas absolutas generadas por url() son:
+    /Sistema/app/css/admin/estilos.css  (correcto, siempre funciona)
+
+NOTA SOBRE $base_url vs url():
+  - $base_url se usaba para generar rutas relativas (../, ../../)
+  - Con el router, $base_url debe ser ABSOLUTO (ver Paso 9)
+  - url() es la funcion PREFERIDA para TODAS las URLs (enlaces, forms, CSS, JS)
+
+================================================================================
+11. PASO 9: CORREGIR $base_url EN templates/header.php
+================================================================================
+
+PROBLEMA:
+  Originalmente $base_url se calculaba como ruta relativa:
+    $base_url = str_repeat('../', $depth);
+  Esto daba '../' para archivos en admin/, '../../' para archivos en admin/sub/.
+  Con el router, estas rutas relativas NO coinciden con la URL del navegador.
+
+SOLUCION:
+  Reemplazar el calculo completo por:
+
+    $base_url = defined('BASE_PATH') ? BASE_PATH . '/' : '';
+
+  Esto produce:
+    $base_url = '/Sistema/admin/'  (ruta absoluta)
+
+  Ahora <link href="<?= $base_url ?>app/css/estilos.css"> genera:
+    /Sistema/admin/app/css/estilos.css
+  
+  Que es la ruta correcta desde cualquier URL del navegador.
+
+NOTA: $base_url ahora SOLO debe usarse para CSS, JS e imagenes.
+      Para enlaces de navegacion y acciones, usar url() en su lugar.
+      (aunque $base_url tambien funcionaria, url() es mas semantico)
+
+================================================================================
+12. CASOS ESPECIALES: FACEBOOK OAUTH CALLBACK
+================================================================================
+
+PROBLEMA:
+  Facebook (y otros servicios OAuth como GitHub) redirigen a una URL fija
+  configurada en la aplicacion. Si esa URL es directa al archivo .php:
+
+    define('FACEBOOK_REDIRECT_URI', 'http://localhost/.../controladores/facebook_callback.php');
+
+  El archivo se accede directamente (no pasa por el router), por lo que
+  las funciones redirect() y url() NO estan definidas.
+
+SOLUCION:
+  Cambiar la URL de redireccionamiento OAuth para que apunte a la RUTA:
+
+    define('FACEBOOK_REDIRECT_URI', 'http://localhost/.../facebook/callback');
+
+  Ahora la solicitud pasa por el router, que carga config/rutas.php
+  (donde se definen url() y redirect()), y luego incluye el controlador.
+
+  En el mapa de rutas:
+    '/facebook/login'    => 'controladores/facebook_login.php',
+    '/facebook/callback' => 'controladores/facebook_callback.php',
+
+NOTA: facebook_login.php usa header('Location: https://...') PARA UNA URL EXTERNA
+      de Facebook. ESO NO se reemplaza por redirect().
+
+================================================================================
+13. CASOS ESPECIALES: FECHAS EN type="text" VS type="date"
+================================================================================
+
+PROBLEMA:
+  Algunos formularios usaban type="text" para inputs de fecha, confiando en
+  que una libreria JS (Flatpickr) los convertiria en selectores de fecha.
+  Con el router, si el JS no cargaba (por rutas relativas rotas), los inputs
+  quedaban como texto simple y el usuario no podia seleccionar fechas.
+
+SOLUCION:
+  Cambiar type="text" a type="date" en TODOS los inputs de fecha del proyecto.
+  type="date" activa el date picker nativo del navegador sin necesidad de JS.
+
+  ANTES: <input type="text" id="fechaInicio" ...>
+  DESPUES: <input type="date" id="fechaInicio" ...>
+
+  Los JS que tenian fallback (cambiar type a 'date' si Flatpickr no existia)
+  ahora son redundantes pero inofensivos.
+
+================================================================================
+14. PROBLEMAS COMUNES Y SOLUCIONES
+================================================================================
+
+PROBLEMA 1: "Call to undefined function redirect()"
+  CAUSA: Un archivo se esta ejecutando SIN pasar por el router (index.php).
+         Esto pasa cuando:
+           - El archivo es accedido directamente (URL directa al .php)
+           - OAuth callback apunta al archivo .php en vez de a la ruta
+           - El .htaccess no esta funcionando (mod_rewrite desactivado)
+  SOLUCION: 
+    1. Verificar que mod_rewrite este activo en Apache
+    2. Verificar que .htaccess este en la raiz del proyecto
+    3. Para OAuth: cambiar la URL de callback a la ruta (no al archivo)
+    4. Como ULTIMO recurso: agregar require_once 'config/rutas.php' en el archivo
+
+PROBLEMA 2: CSS/JS no cargan (404)
+  CAUSA: Rutas relativas (../) resueltas incorrectamente desde la URL del router.
+  SOLUCION: Usar url() o $base_url con rutas absolutas para todos los CSS/JS.
+
+PROBLEMA 3: "Parse error: Unclosed '[' does not match ')'"
+  CAUSA: Al reemplazar header("Location: ...") por redirect('/ruta', [params]),
+         falta el ] de cierre del array.
+  SOLUCION: Verificar que TODOS los redirect() con array tengan ] antes de ).
+  EJEMPLO: redirect('/ruta', ['id' => $x ]);  // Correcto
+           redirect('/ruta', ['id' => $x));    // Incorrecto
+
+PROBLEMA 4: Las imagenes no se ven
+  CAUSA: Misma que CSS/JS - rutas relativas rotas.
+  SOLUCION: Usar url() o $base_url (absoluto) para rutas de imagenes.
+
+PROBLEMA 5: Error 500 o página en blanco
+  CAUSA: 
+    - Loop de redireccion (redirect() a si mismo)
+    - Ruta mal escrita en el mapa
+    - Archivo destino no existe
+    - Error de sintaxis PHP en el controlador
+  SOLUCION: Revisar el log de errores de Apache/PHP.
+
+PROBLEMA 6: "Invalid parameter number: parameter was not defined" (PDO)
+  CAUSA: Un query SQL usa un named parameter (:param) pero no se bindea.
+  SOLUCION: Verificar que todos los :param en el SQL tengan su bindParam().
+  Ejemplo tipico:
+    $sql = "UPDATE tabla SET x = :x WHERE id = :id AND user_id = :user_id";
+    $sql->bindParam(':x', $x);
+    $sql->bindParam(':id', $id);
+    // FALTA: $sql->bindParam(':user_id', $userId);
+
+================================================================================
+15. LISTA DE VERIFICACION (CHECKLIST)
+================================================================================
+
+[ ] 1. Crear config/rutas.php con:
+       [ ] define('BASE_PATH', '/nombre_proyecto')
+       [ ] Mapa $rutas con TODAS las rutas (vistas GET + controladores POST)
+       [ ] Funcion url()
+       [ ] Funcion redirect()
+
+[ ] 2. Crear/reemplazar index.php (Front Controller)
+       [ ] Incluye config/rutas.php
+       [ ] Lee $_GET['url'] y normaliza
+       [ ] Busca en $rutas
+       [ ] Hace chdir() + require() del archivo destino
+       [ ] Fallback a pagina 404
+
+[ ] 3. Configurar .htaccess
+       [ ] RewriteEngine On
+       [ ] RewriteCond %{REQUEST_FILENAME} !-f
+       [ ] RewriteCond %{REQUEST_FILENAME} !-d
+       [ ] RewriteRule con [QSA,L]
+       [ ] ErrorDocument 404
+
+[ ] 4. Respaldar index.php original como inicio.php (si tenia landing page)
+
+[ ] 5. Reemplazar TODOS los header("Location:") por redirect()
+       [ ] controladores/admin/*.php
+       [ ] controladores/recepcionista/*.php
+       [ ] controladores/cliente/*.php
+       [ ] controladores/*.php (raiz)
+       [ ] Vistas (admin/, recepcionista/, cliente/)
+       [ ] templates/header.php
+       [ ] VERIFICAR que no quede header("Location:") suelto (excepto URLs externas)
+
+[ ] 6. Reemplazar TODOS los form action por url()
+       [ ] admin/*.php
+       [ ] recepcionista/*.php
+       [ ] cliente/*.php
+
+[ ] 7. Reemplazar TODOS los href por url()
+       [ ] Navegacion en templates/header.php
+       [ ] Enlaces simples en vistas
+       [ ] Enlaces con parametros PHP (complejos)
+
+[ ] 8. Corregir $base_url en templates/header.php
+       [ ] Cambiar de ruta relativa a BASE_PATH
+
+[ ] 9. Corregir CSS y JS con rutas relativas
+       [ ] Buscar href/src con ../ o ./
+       [ ] Reemplazar con url() o $base_url
+
+[ ] 10. Corregir inputs de fecha
+        [ ] Cambiar type="text" a type="date" en todos los formularios
+
+[ ] 11. Corregir URLs OAuth (Facebook, GitHub, etc.)
+        [ ] Cambiar de URL directa al archivo a ruta del router
+        [ ] Agregar rutas correspondientes en $rutas
+
+[ ] 12. Verificar sintaxis PHP de TODOS los archivos modificados
+        [ ] php -l cada archivo
+
+[ ] 13. Verificar balance de corchetes y parentesis en redirect()
+        [ ] Buscar patron: redirect(... [ ... );
+        [ ] Cada [ debe tener su ]
+
+[ ] 14. Verificar que los controladores tengan todos los bindParam() necesarios
+        [ ] Para cada SQL con :parametro, verificar su bindParam()
+
+[ ] 15. Prueba final end-to-end
+        [ ] Navegar por todas las secciones
+        [ ] Crear, editar, eliminar registros
+        [ ] Verificar CSS/JS carguen
+        [ ] Verificar redirecciones post-CRUD
+
+================================================================================
+16. RESUMEN DE ARCHIVOS MODIFICADOS EN ESTE PROYECTO
+================================================================================
+
+Para referencia, estos fueron todos los archivos tocados:
+
+ARCHIVOS NUEVOS:
+  config/rutas.php           - Mapa de rutas + funciones url() y redirect()
+
+ARCHIVO REEMPLAZADO:
+  index.php                  - De landing page a Front Controller
+  .htaccess                  - Agregadas reglas RewriteEngine
+
+ARCHIVOS MODIFICADOS:
+  templates/header.php       - $base_url cambiado a ruta absoluta
+
+CONTROLADORES (header() -> redirect()):
+  controladores/login.php
+  controladores/registro.php
+  controladores/recuperar_password.php
+  controladores/logout.php
+  controladores/admin/agregar_habitacion.php
+  controladores/admin/editar_habitacion.php
+  controladores/admin/eliminar_habitacion.php
+  controladores/admin/cambiar_estado_habitacion.php
+  controladores/admin/agregar_servicio.php
+  controladores/admin/editar_servicio.php
+  controladores/admin/eliminar_servicio.php
+  controladores/admin/agregar_usuario.php
+  controladores/admin/editar_usuario.php
+  controladores/admin/eliminar_usuario.php
+  controladores/admin/editar_password_usuario.php
+  controladores/admin/registrar_mantenimiento_habitacion.php
+  controladores/admin/editar_mantenimiento_habitacion.php
+  controladores/admin/eliminar_mantenimiento_habitacion.php
+  controladores/admin/cambiar_estado_mantenimiento_habitacion.php
+  controladores/admin/configuracion_hotel.php
+  controladores/recepcionista/registrar_reserva.php
+  controladores/recepcionista/editar_reserva.php
+  controladores/recepcionista/cambiar_estado_reserva.php
+  controladores/recepcionista/eliminar_reserva.php
+  controladores/recepcionista/registrar_servicios_reserva.php
+  controladores/recepcionista/editar_servicios_reserva.php
+  controladores/recepcionista/eliminar_servicios_reserva.php
+  controladores/recepcionista/procesar_pago.php
+  controladores/cliente/registrar_reserva.php
+  controladores/cliente/editar_reserva.php
+  controladores/cliente/eliminar_reserva.php
+  controladores/cliente/configuracion_cuenta.php
+  controladores/cliente/cambiar_password.php
+  controladores/notificaciones/obtener.php
+  controladores/notificaciones/marcar_leidas.php
+  factura/factura_pdf.php
+  autorizacion/auth.php
+
+VISTAS (form action + href -> url()):
+  admin/dash_admin.php
+  admin/gestion_habitaciones.php
+  admin/agregar_habitacion.php
+  admin/editar_habitacion.php
+  admin/gestion_servicios.php
+  admin/agregar_servicio.php
+  admin/editar_servicio.php
+  admin/gestion_usuarios.php
+  admin/agregar_usuario.php
+  admin/editar_usuario.php
+  admin/gestion_mantenimientos_habitacion.php
+  admin/registrar_mantenimiento_habitacion.php
+  admin/editar_mantenimiento_habitacion.php
+  admin/configuracion_hotel.php
+  admin/reportes.php
+  recepcionista/dash_recepcionista.php
+  recepcionista/gestion_reservas.php
+  recepcionista/registrar_reserva.php
+  recepcionista/editar_reserva.php
+  recepcionista/cambiar_estado_reserva.php
+  recepcionista/gestion_servicios_reserva.php
+  recepcionista/registrar_servicios_reserva.php
+  recepcionista/editar_servicios_reserva.php
+  recepcionista/gestion_pagos.php
+  recepcionista/pagar_reserva.php
+  cliente/dash_cliente.php
+  cliente/gestion_reservas.php
+  cliente/registrar_reserva.php
+  cliente/editar_reserva.php
+  cliente/gestion_servicios_reserva.php
+  cliente/configuracion_cuenta.php
+  cliente/cambiar_password.php
+  reportes/reporte_ocupacion.php
+  reportes/reporte_financiero.php
+  reportes/reporte_mantenimiento.php
+  reportes/reporte_servicios.php
+  reportes/reporte_usuarios.php
+  reportes/reporte_reservas.php
+  inicio.php
+  login.php
+  registro.php
+  recuperar_password.php
+  pagina_no_encontrada.php
+  templates/header.php
+
+OTROS:
+  config/oauth_config.php    - FACEBOOK_REDIRECT_URI cambiado a ruta
+
+================================================================================
+17. PROMPT PARA AGENTE DE IA
+================================================================================
+
+Copia y pega este prompt en tu agente de IA para que ejecute TODO el proceso
+de migracion a router en OTRO proyecto PHP:
+
+==============================================================================
+PROMPT INICIO
+==============================================================================
+
+Necesito implementar un sistema de enrutamiento (Front Controller) en mi
+proyecto PHP. Sigue estos pasos en orden y NO pases al siguiente hasta
+completar el anterior:
+
+PASO 1: CREAR config/rutas.php
+- Crear el archivo config/rutas.php
+- Definir define('BASE_PATH', '/nombre_de_la_carpeta_del_proyecto');
+- Crear el array $rutas con TODAS las rutas del proyecto
+  - Vistas GET: '/' => 'inicio.php', '/login' => 'login.php',
+    '/admin/usuarios' => 'admin/gestion_usuarios.php',
+    '/admin/usuarios/crear' => 'admin/agregar_usuario.php', etc.
+  - Controladores POST: '/admin/usuarios/guardar' => 'controladores/admin/agregar_usuario.php',
+    '/admin/usuarios/actualizar' => 'controladores/admin/editar_usuario.php',
+    '/admin/usuarios/eliminar' => 'controladores/admin/eliminar_usuario.php', etc.
+- Definir la funcion url($path = '', $params = []) que anteponga BASE_PATH
+- Definir la funcion redirect($path, $params = []) que haga header('Location: '.url(...)) y exit
+
+PASO 2: RESPALDAR index.php
+- Si index.php existe y NO es un front controller, renombrarlo a inicio.php
+  (o el nombre que corresponda a la landing page)
+- Agregar la ruta '/' => 'inicio.php' al mapa de rutas
+
+PASO 3: CREAR index.php (Front Controller)
+<?php
+require __DIR__ . '/config/rutas.php';
+$url = isset($_GET['url']) ? rtrim($_GET['url'], '/') : '';
+$url = '/' . ltrim($url, '/');
+$urlPath = parse_url($url, PHP_URL_PATH);
+if (isset($rutas[$urlPath])) {
+    $target = __DIR__ . '/' . $rutas[$urlPath];
+    if (file_exists($target)) {
+        $cwd = getcwd();
+        chdir(dirname($target));
+        require $target;
+        chdir($cwd);
+        exit;
+    }
+}
+$notFound = __DIR__ . '/pagina_no_encontrada.php';
+if (file_exists($notFound)) {
+    $cwd = getcwd();
+    chdir(dirname($notFound));
+    require $notFound;
+    chdir($cwd);
+} else {
+    http_response_code(404);
+    echo '404 - Pagina no encontrada';
+}
+?>
+
+PASO 4: CONFIGURAR .htaccess
+- Escribir en la raiz del proyecto:
+RewriteEngine On
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php?url=$1 [QSA,L]
+ErrorDocument 404 /NOMBRE_CARPETA_PROYECTO/index.php?url=404
+
+PASO 5: CORREGIR $base_url EN templates/header.php
+- Buscar la definicion de $base_url en el header
+- REEMPLAZAR el calculo de ruta relativa por:
+  $base_url = defined('BASE_PATH') ? BASE_PATH . '/' : '';
+
+PASO 6: REEMPLAZAR header("Location:") POR redirect()
+- Buscar en TODOS los archivos PHP (excluyendo vendor/) el patron
+  header("Location: ...")
+- REEMPLAZAR CADA UNO con redirect('/ruta-correspondiente')
+- Para URLs externas como https://facebook.com, DEJARLAS INTACTAS
+- Si el header() tiene variables PHP en la URL, pasarlas como array:
+  redirect('/ruta', ['id' => $variable])
+- ATENCION: Verificar que los corchetes [] esten balanceados.
+  CORRECTO: redirect('/ruta', ['id' => $x ]);
+  INCORRECTO: redirect('/ruta', ['id' => $x));
+
+PASO 7: REEMPLAZAR FORM action POR url()
+- Buscar en las VISTAS (no controladores) los action="..." de formularios
+- REEMPLAZAR con action="<?= url('/ruta') ?>"
+
+PASO 8: REEMPLAZAR hrefs EN NAVEGACION
+- Buscar href="archivo.php" y href="<?= $base_url ?>archivo.php"
+- REEMPLAZAR con href="<?= url('/ruta') ?>"
+- Para enlaces con parametros PHP:
+  href="<?= url('/ruta?id=' . $id) ?>" o
+  href="<?= url('/ruta', ['id' => $id]) ?>"
+
+PASO 9: CORREGIR CSS/JS CON RUTAS RELATIVAS
+- Buscar src="../ruta/archivo.js" y href="../ruta/archivo.css"
+  (que NO usen $base_url ni url())
+- REEMPLAZAR con href="<?= url('/app/css/ruta/archivo.css') ?>"
+  y src="<?= url('/app/js/ruta/archivo.js') ?>"
+
+PASO 10: CORREGIR INPUTS DE FECHA
+- Buscar type="text" asociado a fechas (id="fechaInicio", id="fechaFin")
+- REEMPLAZAR con type="date"
+
+PASO 11: CORREGIR URLs OAuth
+- Si hay configuracion OAuth (Facebook, GitHub), cambiar las URLs directas
+  a archivo .php por rutas del router
+- Ej: '.../controladores/facebook_callback.php' -> '.../facebook/callback'
+- Agregar las rutas correspondientes en config/rutas.php
+
+PASO 12: VERIFICAR PDO bindParam
+- En los controladores que hagan UPDATE/INSERT con SQL, verificar que TODOS
+  los named parameters (:param) tengan su respectivo bindParam()
+- Si falta alguno, agregarlo
+
+PASO 13: VERIFICACION FINAL
+- php -l cada archivo modificado (verificar sintaxis)
+- Buscar header("Location:") residuales (solo deben quedar URLs externas)
+- Buscar href o src con rutas relativas (../) a CSS/JS (deben ser 0)
+- Buscar redirect(...[params) sin ] de cierre
+- Probar manualmente: navegar, crear, editar, eliminar registros
+
+IMPORTANTE: No te saltes pasos. Completa cada paso antes de continuar.
+Si encuentras errores de sintaxis, corrigelos inmediatamente.
+
+==============================================================================
+PROMPT FIN
+==============================================================================
+
+================================================================================
+  FIN DE LA GUIA
+================================================================================

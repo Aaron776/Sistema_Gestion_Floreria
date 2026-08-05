@@ -1,0 +1,353 @@
+ .main-form-wrapper {
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        padding: 1.5rem;
+    }
+
+    /* fondo deportivo decorativo */
+    .sport-bg {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 0;
+        opacity: 0.08;
+        pointer-events: none;
+    }
+
+    .sport-bg i {
+        position: absolute;
+        font-size: 12rem;
+        color: #22D3EE;
+    }
+
+    .sport-bg .fa-building {
+        top: 5%;
+        left: -2%;
+        transform: rotate(15deg);
+    }
+
+    .sport-bg .fa-futbol {
+        bottom: 10%;
+        right: -2%;
+        transform: rotate(-10deg);
+    }
+
+    .sport-bg .fa-edit {
+        top: 50%;
+        left: 85%;
+        font-size: 8rem;
+        opacity: 0.5;
+    }
+
+    .sport-bg .fa-map-marker-alt {
+        bottom: 20%;
+        left: 5%;
+        font-size: 7rem;
+    }
+
+    /* contenedor principal */
+    .form-container {
+        position: relative;
+        z-index: 10;
+        width: 100%;
+        max-width: 600px;
+        background: rgba(12, 22, 32, 0.88);
+        backdrop-filter: blur(18px);
+        border-radius: 48px;
+        padding: 2.5rem 2rem;
+        border: 1px solid rgba(34, 211, 238, 0.4);
+        box-shadow: 0 30px 50px -20px rgba(0, 0, 0, 0.6);
+        animation: fadeInUp 0.6s ease-out;
+    }
+
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .logo-area {
+        text-align: center;
+        margin-bottom: 1.5rem;
+    }
+
+    .subtitle {
+        text-align: center;
+        color: #9fc3d4;
+        font-size: 0.85rem;
+    }
+
+    .form-icon {
+        text-align: center;
+        font-size: 3rem;
+        margin-bottom: 1rem;
+    }
+
+    .form-icon i {
+        background: linear-gradient(135deg, #f59e0b, #22D3EE);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+    }
+
+    h1 {
+        text-align: center;
+        font-size: 1.6rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        font-family: 'Outfit', sans-serif;
+        color: #eef5ff;
+    }
+
+    .info-text {
+        text-align: center;
+        color: #cbd5e6;
+        font-size: 0.8rem;
+        margin-bottom: 1.8rem;
+    }
+
+    .complex-badge {
+        background: rgba(34, 211, 238, 0.1);
+        border-radius: 60px;
+        padding: 0.5rem 1rem;
+        text-align: center;
+        margin-bottom: 1.5rem;
+        font-size: 0.85rem;
+        color: #5eead4;
+        display: inline-block;
+        width: auto;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .complex-badge i {
+        margin-right: 6px;
+    }
+
+    .input-group {
+        margin-bottom: 1.3rem;
+        position: relative;
+    }
+
+    .input-group i {
+        position: absolute;
+        left: 18px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #5eead4;
+        font-size: 1rem;
+        z-index: 1;
+    }
+
+    .input-group input,
+    .input-group textarea {
+        width: 100%;
+        background: rgba(20, 35, 45, 0.8);
+        border: 1px solid rgba(34, 211, 238, 0.3);
+        border-radius: 60px;
+        padding: 0.85rem 1rem 0.85rem 3rem;
+        font-family: 'Inter', sans-serif;
+        font-size: 0.95rem;
+        color: white;
+        outline: none;
+        transition: all 0.2s;
+    }
+
+    .input-group textarea {
+        border-radius: 24px;
+        padding: 0.85rem 1rem 0.85rem 3rem;
+        resize: vertical;
+        min-height: 90px;
+        font-family: 'Inter', sans-serif;
+    }
+
+    .input-group input:focus,
+    .input-group textarea:focus {
+        border-color: #22D3EE;
+        box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.2);
+    }
+
+    .input-group input::placeholder,
+    .input-group textarea::placeholder {
+        color: #8aaec0;
+    }
+
+    .input-group.file-input-group {
+        position: relative;
+        margin-bottom: 1.3rem;
+    }
+
+    .input-group.file-input-group i {
+        left: 18px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #5eead4;
+        font-size: 1rem;
+        z-index: 1;
+        position: absolute;
+        /* Ensure icon is positioned correctly */
+    }
+
+    .input-group input[type="file"] {
+        display: none;
+        /* Hide the default file input */
+    }
+
+    .custom-file-upload {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        background: rgba(20, 35, 45, 0.8);
+        border: 1px solid rgba(34, 211, 238, 0.3);
+        border-radius: 60px;
+        padding: 0.85rem 1rem 0.85rem 3rem;
+        font-family: 'Inter', sans-serif;
+        font-size: 0.95rem;
+        color: #8aaec0;
+        /* Placeholder color */
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .custom-file-upload:hover {
+        border-color: #22D3EE;
+        box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.2);
+    }
+
+    .custom-file-upload span {
+        flex-grow: 1;
+        text-align: left;
+    }
+
+    .custom-file-upload::after {
+        content: "\f093";
+        /* Font Awesome upload icon */
+        font-family: "Font Awesome 6 Free";
+        font-weight: 900;
+        color: #5eead4;
+        margin-left: 10px;
+    }
+
+    /* Previsualización de imagen */
+    .image-preview {
+        margin-top: 0.5rem;
+        margin-bottom: 1.5rem;
+        padding: 1rem;
+        border: 1px dashed rgba(34, 211, 238, 0.4);
+        border-radius: 20px;
+        background: rgba(20, 35, 45, 0.6);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        text-align: center;
+    }
+
+    .preview-img {
+        width: 100px;
+        height: 100px;
+        border-radius: 16px;
+        object-fit: cover;
+        background: #1e2a36;
+        border: 2px solid #22D3EE;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+    }
+
+    .preview-placeholder {
+        font-size: 0.85rem;
+        color: #9fc3d4;
+    }
+
+    .btn-submit {
+        width: 100%;
+        background: linear-gradient(95deg, #10b981, #06b6d4);
+        border: none;
+        border-radius: 60px;
+        padding: 0.9rem;
+        font-weight: 700;
+        font-size: 1rem;
+        color: white;
+        cursor: pointer;
+        transition: 0.3s;
+        margin-top: 0.5rem;
+        margin-bottom: 1.2rem;
+        font-family: 'Inter', sans-serif;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+    }
+
+    .btn-submit:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 25px -10px #06b6d4;
+    }
+
+    .btn-secondary {
+        width: 100%;
+        background: transparent;
+        border: 1px solid rgba(34, 211, 238, 0.4);
+        border-radius: 60px;
+        padding: 0.8rem;
+        font-weight: 500;
+        font-size: 0.9rem;
+        color: #5eead4;
+        cursor: pointer;
+        transition: 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        text-decoration: none;
+    }
+
+    .btn-secondary:hover {
+        background: rgba(34, 211, 238, 0.1);
+        transform: translateY(-2px);
+    }
+
+    .error-message {
+        background: rgba(239, 68, 68, 0.15);
+        border-left: 3px solid #ef4444;
+        padding: 0.8rem;
+        border-radius: 16px;
+        margin-bottom: 1.2rem;
+        display: none;
+        align-items: center;
+        gap: 10px;
+        font-size: 0.8rem;
+        color: #fca5a5;
+    }
+
+    .success-message {
+        background: rgba(16, 185, 129, 0.15);
+        border-left: 3px solid #10b981;
+        padding: 0.8rem;
+        border-radius: 16px;
+        margin-bottom: 1.2rem;
+        display: none;
+        align-items: center;
+        gap: 10px;
+        font-size: 0.8rem;
+        color: #a3e635;
+    }
+
+    @media (max-width: 550px) {
+        .form-container {
+            padding: 1.8rem;
+        }
+
+        h1 {
+            font-size: 1.3rem;
+        }
+    }

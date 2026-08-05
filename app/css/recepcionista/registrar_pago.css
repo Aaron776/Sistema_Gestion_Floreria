@@ -1,0 +1,306 @@
+ a {
+        text-decoration: none;
+    }
+
+    .main-form-wrapper {
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        padding: 1.5rem;
+    }
+
+    /* fondo deportivo decorativo */
+    .sport-bg {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 0;
+        opacity: 0.08;
+        pointer-events: none;
+    }
+
+    .sport-bg i {
+        position: absolute;
+        font-size: 12rem;
+        color: #10b981;
+    }
+
+    .sport-bg .fa-futbol {
+        top: 5%;
+        left: -2%;
+        transform: rotate(15deg);
+    }
+
+    .sport-bg .fa-credit-card {
+        bottom: 10%;
+        right: -2%;
+        transform: rotate(-10deg);
+    }
+
+    .sport-bg .fa-money-bill-wave {
+        top: 50%;
+        left: 85%;
+        font-size: 8rem;
+        opacity: 0.5;
+    }
+
+    .sport-bg .fa-receipt {
+        bottom: 20%;
+        left: 5%;
+        font-size: 7rem;
+    }
+
+    /* contenedor principal */
+    .form-container {
+        position: relative;
+        z-index: 10;
+        width: 100%;
+        max-width: 550px;
+        background: rgba(12, 22, 32, 0.88);
+        backdrop-filter: blur(18px);
+        border-radius: 48px;
+        padding: 2.5rem 2rem;
+        border: 1px solid rgba(16, 185, 129, 0.4);
+        box-shadow: 0 30px 50px -20px rgba(0, 0, 0, 0.6);
+        animation: fadeInUp 0.6s ease-out;
+    }
+
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .logo-area {
+        text-align: center;
+        margin-bottom: 1.5rem;
+    }
+
+    .subtitle {
+        text-align: center;
+        color: #9fc3d4;
+        font-size: 0.85rem;
+    }
+
+    h1 {
+        text-align: center;
+        font-size: 1.6rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        font-family: 'Outfit', sans-serif;
+        color: #eef5ff;
+    }
+
+    .info-text {
+        text-align: center;
+        color: #cbd5e6;
+        font-size: 0.8rem;
+        margin-bottom: 1.8rem;
+    }
+
+    /* Tarjeta de información financiera */
+    .finance-card {
+        background: rgba(16, 185, 129, 0.08);
+        border-radius: 32px;
+        padding: 1.5rem;
+        margin-bottom: 1.8rem;
+        border: 1px solid rgba(16, 185, 129, 0.25);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 1rem;
+    }
+
+    .total-amount {
+        font-size: 3.2rem;
+        font-weight: 800;
+        font-family: 'Outfit', sans-serif;
+        color: #10b981;
+        text-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
+        line-height: 1;
+    }
+
+    .total-label {
+        font-size: 0.8rem;
+        color: #9fc3d4;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        font-weight: 600;
+        margin-bottom: 5px;
+    }
+
+    .finance-details {
+        width: 100%;
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
+        padding-top: 1rem;
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.85rem;
+        color: #cbd5e6;
+        text-align: left;
+    }
+
+    .detail-item i {
+        color: #10b981;
+        margin-right: 6px;
+    }
+
+    /* Formulario */
+    .input-group {
+        margin-bottom: 1.5rem;
+        position: relative;
+    }
+
+    .input-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-size: 0.85rem;
+        color: #9fc3d4;
+        font-weight: 500;
+    }
+
+    .input-group i.input-icon {
+        position: absolute;
+        left: 18px;
+        top: 38px;
+        color: #10b981;
+        font-size: 1rem;
+        z-index: 1;
+        pointer-events: none;
+    }
+
+    .input-control {
+        width: 100%;
+        background: rgba(20, 35, 45, 0.8);
+        border: 1px solid rgba(16, 185, 129, 0.3);
+        border-radius: 20px;
+        padding: 0.85rem 1rem 0.85rem 3rem;
+        font-family: 'Inter', sans-serif;
+        font-size: 0.95rem;
+        color: white;
+        outline: none;
+        transition: all 0.2s;
+    }
+
+    select.input-control {
+        appearance: none;
+        cursor: pointer;
+        background: rgba(20, 35, 45, 0.8) url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%2310b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>') no-repeat right 1rem center;
+        background-size: 1rem;
+    }
+
+    .input-control:focus {
+        border-color: #10b981;
+        box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+    }
+
+    /* File upload */
+    .file-upload-container {
+        position: relative;
+        width: 100%;
+        height: 100px;
+        border: 2px dashed rgba(16, 185, 129, 0.4);
+        border-radius: 24px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: rgba(20, 35, 45, 0.5);
+        cursor: pointer;
+        transition: 0.3s;
+        overflow: hidden;
+    }
+
+    .file-upload-container:hover {
+        background: rgba(16, 185, 129, 0.1);
+        border-color: #10b981;
+    }
+
+    .file-upload-container i {
+        font-size: 1.8rem;
+        color: #10b981;
+        margin-bottom: 8px;
+    }
+
+    .file-upload-container span {
+        font-size: 0.8rem;
+        color: #cbd5e6;
+    }
+
+    .file-upload-container input[type="file"] {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        top: 0;
+        left: 0;
+        opacity: 0;
+        cursor: pointer;
+    }
+
+    .btn-submit {
+        width: 100%;
+        background: linear-gradient(95deg, #10b981, #059669);
+        border: none;
+        border-radius: 60px;
+        padding: 1rem;
+        font-weight: 700;
+        font-size: 1.05rem;
+        color: white;
+        cursor: pointer;
+        transition: 0.3s;
+        margin-top: 1rem;
+        margin-bottom: 1.2rem;
+        font-family: 'Inter', sans-serif;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+    }
+
+    .btn-submit:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 25px -10px #059669;
+    }
+
+    .btn-secondary {
+        width: 100%;
+        background: transparent;
+        border: 1px solid rgba(159, 195, 212, 0.3);
+        border-radius: 60px;
+        padding: 0.8rem;
+        font-weight: 500;
+        font-size: 0.9rem;
+        color: #9fc3d4;
+        cursor: pointer;
+        transition: 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        text-decoration: none;
+    }
+
+    .btn-secondary:hover {
+        background: rgba(255, 255, 255, 0.05);
+        color: white;
+    }
+
+    @media (max-width: 550px) {
+        .form-container {
+            padding: 1.8rem;
+        }
+
+        .finance-details {
+            flex-direction: column;
+            gap: 8px;
+        }
+    }

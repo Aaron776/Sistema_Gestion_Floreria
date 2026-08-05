@@ -1,0 +1,225 @@
+================================================================================
+AUDITORÍA FINAL DEL PROYECTO
+Fecha: 04/08/2026
+Hora de inicio: 19:02
+Proyecto: Sistema_Gestion_Floreria — Florería "Pétalos"
+Auditor: Agente IA — Antigravity
+================================================================================
+
+ÍNDICE
+
+Resumen Ejecutivo
+Análisis de Arquitectura
+Auditoría de Base de Datos
+Auditoría de Seguridad
+Pruebas Unitarias
+Pruebas Funcionales
+Pruebas de Integración
+Pruebas de Aceptación (UX/UI)
+Pruebas de Responsive Design
+Pruebas de Rendimiento
+Correcciones Realizadas
+Recomendaciones Finales
+Checklist Pre-Deploy
+Veredicto Final
+
+================================================================================
+FASE 1: ANÁLISIS DE ARQUITECTURA
+================================================================================
+
+1.1 MAPEO DEL PROYECTO
+-----------------------
+- Patrón arquitectónico: PHP PROCEDIMENTAL con separación manual
+  Vista/Controlador (MVC-híbrido sin framework). No existe capa de modelos.
+- Estructura de carpetas:
+  - index.php (landing page, NO es front controller)
+  - login.php, registro.php, acceso_denegado.php, pagina_no_encontrada.php
+  - admin/            -> 12 vistas del rol admin (dashboards, gestiones, CRUDs)
+  - vendedor/         -> 7 vistas del rol vendedor (pedidos, pagos, repartidor)
+  - repartidor/       -> 4 vistas del rol repartidor (dash + estados de entrega)
+  - controladores/    -> 39 controladores (admin/, vendedor/, repartidor/,
+                         notificaciones/, login, logout, registro, oauth)
+  - templates/        -> header.php, footer.php, sidebar.php
+  - conexion/         -> bd.php (PDO), session.php
+  - autorizacion/     -> auth.php (protección de páginas)
+  - config/           -> rutas.php, oauth_config.php
+  - helpers/          -> Encriptar.php (Crypto), Formatos.php (tiempoAgo)
+  - reportes/         -> 6 PDF + 6 Excel (categorias, clientes, pedidos,
+                         productos, usuarios, ventas)
+  - app/              -> css/, js/, facturas/, fotos_productos/ (uploads)
+  - database/         -> bd.sql (esquema + datos de ejemplo)
+  - .env              -> variables de entorno
+- Punto de entrada: NO hay front controller activo. index.php es una landing
+  page estática. .htaccess SOLO define ErrorDocument 404 (sin RewriteEngine,
+  sin URLs amigables). El proyecto se navega por URLs directas .php.
+- ⚠️ config/rutas.php define BASE_PATH = '/Sistemas_Web_PHP/Sistema_Gestion_Sastreria'
+  (nombre de OTRO proyecto) y funciones url()/redirect() que NINGÚN archivo usa.
+  Es código muerto heredado de la migración del enrutador (nunca se activó).
+  HALLAZGO-ARQ-01 (media): eliminar o corregir rutas.php y helpers asociados.
+
+1.2 REQUISITOS DEL SERVIDOR
+-----------------------------
+- PHP: 8.2 o superior (obligatorio por phpoffice/phpspreadsheet ^5.9 que exige
+  ^8.2; el código usa funciones de PHP 8.0+ como str_starts_with). En local:
+  PHP 8.2.12.
+- Extensiones requeridas (todas presentes en local): pdo_mysql, mbstring, gd,
+  curl, openssl, fileinfo, json, zip, mysqlnd.
+- Base de datos: MySQL 8 / MariaDB 10.4+ (se usa charset utf8mb4, time_zone
+  '-05:00'). BD real: sistema_gestion_floreria (el .env), aunque database/bd.sql
+  crea floreria_db -> INCOHERENCIA entre esquema .sql y BD usada (HALLAZGO-ARQ-02).
+- Servidor web: Apache/XAMPP. mod_rewrite DISPONIBLE pero NO usado (no hay
+  RewriteEngine). Permisos carpeta app/fotos_productos: los usuarios "BUILTIN"
+  solo tienen ReadAndExecute -> se necesita escritura para subir fotos
+  (HALLAZGO-ARQ-03, media).
+
+1.3 DEPENDENCIAS
+-----------------
+- Composer (vendor/): phpmailer/phpmailer ^7.1, dompdf/dompdf ^3.1,
+  phpoffice/phpspreadsheet ^5.9. No hay phpunit.
+- CDNs: Font Awesome 6.0.0-beta3, Google Fonts (Inter).
+- Locales: app/css, app/js.
+
+1.4 CONFIGURACIÓN Y VARIABLES DE ENTORNO (.env)
+-------------------------------------------------
+- DB_HOST, DB_NAME, DB_USER, DB_PASS
+- MAIL_USER, MAIL_PASSWORD
+- BASE_URL, FACEBOOK_APP_ID, FACEBOOK_APP_SECRET
+- CRYPTO_SECRET_KEY, CRYPTO_IV (migradas a .env en esta sesión previa)
+
+1.5 CONVENCIONES DEL PROYECTO
+-------------------------------
+- Archivos: snake_case descriptivo (gestion_usuarios.php, agregar_usuario.php).
+- Controladores: sin clase, lógica en scripts que hacen require de session.php
+  y bd.php, validan rol y CSRF, procesan POST y redirigen con header()+exit.
+- Sesión: $_SESSION['id_usuario'], ['nombre'], ['rol'], ['logueado'].
+- Mensajería flash: $_SESSION['errores'] (array) y $_SESSION['exito'].
+- BD: PDO ($conexion) con bindParam y ERRMODE_EXCEPTION, try-catch con
+  error_log() + mensaje genérico al usuario.
+- Seguridad base en todos los controladores: verificación de rol + token CSRF.
+
+1.6 ARCHIVOS INNECESARIOS DETECTADOS
+---------------------------------------
+- No hay .zip, node_modules/, test.php/debug.php/phpinfo.php.
+- Presentes: .agents/ (skills internas), DOCUMENTACION.md, PRUEBAS.md,
+  EVALUACION_SISTEMA.txt, GUIA_ENRUTADOR.txt, PITCH_ENTREVISTA.txt,
+  database/bd.sql (esquema, necesario), composer.json/composer.lock en raíz.
+- ⚠️ .env en la raíz del document root: está gitignoreado pero el servidor web
+  puede servirlo si Apache no lo bloquea. Recomendar protección .htaccess
+  (tratado en SEG-12).
+
+HALLAZGOS FASE 1:
+- HALLAZGO-ARQ-01 (MEDIA) | config/rutas.php apunta a "Sistema_Gestion_Sastreria"
+  y las funciones url()/redirect() son código muerto.
+- HALLAZGO-ARQ-02 (MEDIA) | database/bd.sql crea "floreria_db" pero el .env usa
+  "sistema_gestion_floreria".
+- HALLAZGO-ARQ-03 (MEDIA) | app/fotos_productos sin permiso de escritura para
+  usuarios web (subida de fotos fallará en despliegue).
+
+================================================================================
+FASE 2: AUDITORÍA DE BASE DE DATOS
+================================================================================
+
+2.1 ESQUEMA (vs base real "sistema_gestion_floreria")
+--------------------------------------------------------
+- 9 tablas coinciden EXACTAMENTE con bd.sql: usuarios, categorias, productos,
+  pedidos, detalle_pedido, pagos, entregas, movimientos_inventario, notificaciones.
+- Collation utf8mb4, time_zone '-05:00'. ENUMs y FKs correctas (ON DELETE
+  CASCADE en detalle_pedido y notificaciones).
+- Totales: usuarios 7 | categorias 7 | productos 16 | pedidos 6 | detalle 5 |
+  pagos 1 | entregas 2 | mov_inventario 8 | notificaciones 64.
+
+2.2 PRUEBAS DE INTEGRIDAD (herramienta: script PHP temporal PDO, solo lectura)
+-------------------------------------------------------------------------------
+- BD-01 Datos basura ("test","prueba","aaaa","asdf"): ✅ SIN hallazgos.
+- BD-02 FK huérfanas (11 relaciones verificadas): ✅ 0 huérfanas.
+- BD-03 Contraseñas: ✅ TODAS hasheadas con bcrypt. Usuarios #1-4 con $2y$10$,
+  usuarios #5-7 (pablo, esteban, daniela) con $2a$12$ — también bcrypt válido,
+  compatible con password_verify. Ninguna en texto plano.
+- BD-04 Emails duplicados: ✅ 0 duplicados.
+- BD-05 Roles inválidos: ✅ admin(1), vendedor(1), repartidor(2), cliente(3);
+  todos dentro del ENUM.
+- BD-06 Fechas absurdas/futuras (ultimo_acceso, created_at, fecha_pedido,
+  fecha_pago, fecha_asignacion, fecha_entrega): ✅ SIN hallazgos.
+- Índices: todas las columnas FK indexadas (creadas por MySQL al definir la FK).
+  No hay índices compuestos de negocio, pero el volumen es bajo (<=64 filas);
+  aceptable para este alcance.
+
+2.3 BACKUP Y RESTAURACIÓN
+---------------------------
+- ⚠️ database/bd.sql contiene SOLO la estructura (CREATE TABLE), sin datos y
+  sin procedimiento de restauración documentado. La BD de trabajo
+  "sistema_gestion_floreria" NO coincide con el nombre que crea el script
+  ("floreria_db").
+- HALLAZGO-BD-01 (MEDIA): no existe dump de datos actualizado (mysqldump) para
+  entregar; y bd.sql no reproduce la BD real (nombre distinto + sin INSERTs).
+- Acción recomendada: generar mysqldump de estructura+datos limpios y corregir
+  el CREATE DATABASE de bd.sql, o documentar el nombre real.
+
+HALLAZGOS FASE 2:
+- HALLAZGO-BD-01 (MEDIA) | No hay dump de producción; bd.sql usa nombre de BD
+  distinto al real y solo tiene estructura.
+
+================================================================================
+FASE 3: AUDITORÍA DE SEGURIDAD (CRÍTICA)
+================================================================================
+Herramienta: revisión manual de código + verificación web (solo lectura).
+
+RESULTADOS POR PRUEBA:
+- SEG-01 SQL Injection: ✅ OK. 100% de consultas con sentencias preparadas y
+  bindParam. No se detectó concatenación de variables en SQL.
+- SEG-02 SQLi en login: ✅ OK. login.php usa prepare/bindParam.
+- SEG-03/04 XSS reflejado/almacenado: ✅ OK (riesgo bajo). htmlspecialchars se
+  aplica de forma consistente en las vistas. No se detectaron echo de datos de
+  BD/usuarios sin escapar en campos críticos.
+- SEG-05 CSRF: ✅ OK. Los 39 controladores con POST verifican csrf_token.
+- SEG-06 Regeneración de sesión: ✅ OK. login.php ejecuta session_regenerate_id
+  tras autenticar (además de use_strict_mode en session.php).
+- SEG-07 Contraseñas débiles: ⚠️ MEDIA. Solo exige mínimo 5 caracteres
+  (registro.php y controladores/admin/agregar_usuario.php). Sin complejidad.
+- SEG-08 Subida de archivos: ❌ ALTA (riesgo RCE). En
+  controladores/admin/agregar_producto.php se valida el MIME del CLIENTE
+  ($_FILES['type']) y se toma la extensión del nombre original SIN lista
+  blanca. Un archivo "shell.php" con Content-Type image/jpeg pasaría y se
+  guardaría con extensión .php en app/fotos_productos (ejecutable vía web).
+- SEG-09 Path traversal: ✅ Riesgo bajo. La imagen se almacena con uniqid() +
+  extensión; no se usan rutas de usuario para leer archivos.
+- SEG-10 Headers de seguridad: ❌ MEDIA. .htaccess solo tiene ErrorDocument.
+  Sin X-Frame-Options, X-Content-Type-Options, CSP ni Referrer-Policy.
+- SEG-11 Exposición de errores: ⚠️ MEDIA (para producción). display_errors=1
+  activo en local (php.ini). El código usa mensajes genéricos, pero en
+  producción debe ir display_errors=Off.
+- SEG-12 Archivos sensibles expuestos: ❌🔴 CRÍTICA. Vía HTTP se sirven con
+  código 200: .env (369 B — credenciales DB root, MAIL_PASSWORD, secretos
+  Facebook), composer.json, database/bd.sql y helpers/Encriptar.php.
+- SEG-13 Credenciales hardcodeadas: ✅ OK en código (todo via .env), pero el
+  .env está web-accesible (ver SEG-12).
+- SEG-14 Enumeración de usuarios: ⚠️ MEDIA. login.php responde "Tu cuenta esta
+  desactivada" solo cuando el email existe (revela existencia). registro.php
+  avisa "Ya existe un usuario con este email". Riesgo: los atacantes pueden
+  confirmar emails registrados.
+- SEG-15 Inyección de cabeceras: ✅ OK. Redirecciones con rutas estáticas.
+
+HALLAZGOS FASE 3 (orden de severidad):
+- HALLAZGO-SEG-12 (CRÍTICA) | .env y demás archivos sensibles accesibles vía
+  web (HTTP 200). Credenciales expuestas.
+- HALLAZGO-SEG-08 (ALTA) | Subida de imágenes validable solo por MIME de
+  cliente y extensión sin whitelist → posible subida de PHP (RCE).
+- HALLAZGO-SEG-10 (MEDIA) | Sin headers de seguridad HTTP.
+- HALLAZGO-SEG-07 (MEDIA) | Política de contraseñas débil (mín. 5 caracteres).
+- HALLAZGO-SEG-11 (MEDIA) | display_errors activo en el entorno.
+- HALLAZGO-SEG-14 (MEDIA) | Enumeración de usuarios en login y registro.
+
+CORRECCIONES PROPUESTAS (a aplicar SOLO con autorización):
+1. SEG-12: .htaccess raíz para bloquear .env, *.sql, composer.json/lock y
+   helpers/config; o mover .env fuera del document root.
+2. SEG-08: whitelist de extensiones (jpg/jpeg/png) + verificación de contenido
+   real con finfo_file()/getimagesize() + .htaccess en app/fotos_productos
+   para impedir ejecución de scripts.
+3. SEG-10: agregar X-Frame-Options, X-Content-Type-Options, Referrer-Policy y
+   CSP básica en .htaccess (o headers PHP).
+4. SEG-07: subir mínimo a 8 caracteres con complejidad básica.
+5. SEG-14: mensaje único "Credenciales incorrectas" en login (sin distinguir
+   inactivo) — a coordinar con el usuario, ya que antes prefirió conservar el
+   mensaje de cuenta desactivada.
+
+================================================================================
